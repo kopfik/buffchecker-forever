@@ -1,11 +1,11 @@
--- [claude] Buff Check
+-- Buff Checker
 -- Shows one row of action-button style icons for buffs that are MISSING or
 -- about to expire. Nothing is shown when everything is fine.
 -- In combat the game hides buffs from addons, so there the icons go by the clock
 -- (a buff seen before combat runs out -> icon appears) and by your own casts
 -- (you cast a watched buff -> icon disappears). Gaps close after combat.
 --
--- /cbc opens the window:
+-- /bc opens the window:
 --   * every character has its own list of buffs - add by spell ID (last line), remove with the button,
 --     arrows change the order (= order of the icons); changing it never touches other characters
 --   * "Add this character" puts the character you are on into the drop-down
@@ -26,11 +26,11 @@ local ADDON = ...
 local WARN_SECONDS = 120      -- show the icon when less than this is left (2 min), for every buff
 local SHORT_SECONDS = 120     -- a buff lasting this long or less (e.g. a 1-minute proc like Frigid Power) is "short":
                               -- always shown, clock sweep on the icon, red icon when it is missing
-local DEFAULT_SIZE = 45  -- icon size (45 = default action buttons); "Icon size" in /cbc changes it
+local DEFAULT_SIZE = 45  -- icon size (45 = default action buttons); "Icon size" in /bc changes it
 local SIZE = DEFAULT_SIZE
 local GAP = 4            -- space between icons (about what the action bars have)
 local COLUMNS = 6        -- icons per row; more icons start a new row below
--- space between the icons and the frame around them ("Frame" in /cbc); the frame's edges are not
+-- space between the icons and the frame around them ("Frame" in /bc); the frame's edges are not
 -- equally thick (the top is a title bar), so these differ to make the visible gaps look even
 local PAD_LEFT, PAD_RIGHT = 14, 13
 local PAD_TOP, PAD_BOTTOM = 33, 14
@@ -44,9 +44,9 @@ local PAD_TOP, PAD_BOTTOM = 33, 14
 --   iconSpell / iconItem   spell ID or item ID to take the icon from (until the buff itself was seen)
 --   icon      icon file, used instead of everything else
 --   countItem item ID whose count in bags is shown in the corner (when no item is in a click slot)
---   slots     what the clicks do until the player changes it in /cbc: L, R, SL, SR, each
+--   slots     what the clicks do until the player changes it in /bc: L, R, SL, SR, each
 --             { kind = "spell" or "item", id = ID and/or name = "Name" }
---   always    the icon is always shown (until the player unticks "always" in /cbc)
+--   always    the icon is always shown (until the player unticks "always" in /bc)
 --   class     a new character only gets it in its list when it is of this class
 local DEFAULTS = {
 	{ name = "Well Fed", buffs = { "Well Fed" }, icon = "Interface\\Icons\\Spell_Misc_Food" },
@@ -64,13 +64,13 @@ local DEFAULTS = {
 
 ---------------------------------------------------------------------------
 -- DATA
--- ClaudeBuffCheckDB.chars = per character:
+-- BuffCheckerDB.chars = per character:
 --     list   its buff list, in order. An entry is either
 --            { preset = "Well Fed" }  (one of DEFAULTS above) or { spell = 1459 } (added by ID)
 --     watch  which entries are ticked
---     slots  what the clicks on an entry do and which icon it has, when changed in /cbc:
+--     slots  what the clicks on an entry do and which icon it has, when changed in /bc:
 --            slots[key] = { L = action, R = action, SL = action, SR = action, icon = action }
---     always entries ticked / unticked as "always" in /cbc (true / false)
+--     always entries ticked / unticked as "always" in /bc (true / false)
 --     saved  copy of all of the above made by "Save user" ("Restore user" puts it back)
 ---------------------------------------------------------------------------
 local FALLBACK_ICON = 134400 -- question mark
@@ -178,7 +178,7 @@ local function CursorAction()
 	return false
 end
 
--- the slots of an entry for a character: its own when changed in /cbc, otherwise the entry's defaults.
+-- the slots of an entry for a character: its own when changed in /bc, otherwise the entry's defaults.
 -- (Read only - change them with SetSlot.)
 local function SlotsFor(char, entry)
 	local own = char and char.slots and char.slots[Key(entry)]
@@ -284,7 +284,7 @@ end
 local function EntryIcons(char, entry, check)
 	local slots = SlotsFor(char, entry)
 	local fixed = (slots.icon and ActionIcon(slots.icon)) or check.icon
-	local base = ClaudeBuffCheckDB.icons[Key(entry)]
+	local base = BuffCheckerDB.icons[Key(entry)]
 	if not base and check.weapon then -- oil/stone: the item you put on
 		for _, name in ipairs(SLOTS) do
 			if slots[name] and slots[name].kind == "item" then base = ActionIcon(slots[name]) break end
@@ -297,12 +297,12 @@ end
 -- THE ROW OF ICONS
 ---------------------------------------------------------------------------
 -- One parent frame: all icons live inside it, so they move as one block.
-local bar = CreateFrame("Frame", "ClaudeBuffCheckBar", UIParent)
+local bar = CreateFrame("Frame", "BuffCheckerBar", UIParent)
 bar:SetSize(SIZE, SIZE)
 
--- optional frame around the visible icons ("Frame" checkbox in /cbc): the game's own
--- window template (as the /cbc window and Baganator's bags), without the portrait
-local border = CreateFrame("Frame", "ClaudeBuffCheckFrame", bar, "ButtonFrameTemplate")
+-- optional frame around the visible icons ("Frame" checkbox in /bc): the game's own
+-- window template (as the /bc window and Baganator's bags), without the portrait
+local border = CreateFrame("Frame", "BuffCheckerFrame", bar, "ButtonFrameTemplate")
 border:SetFrameLevel(math.max(0, bar:GetFrameLevel() - 1))
 -- exactly what Baganator does for its bags
 ButtonFrameTemplate_HidePortrait(border)
@@ -358,11 +358,11 @@ local function FitCorners(width, height)
 end
 border:Hide()
 
--- close button (X) of the template: hides the icons until /cbc is opened again
+-- close button (X) of the template: hides the icons until /bc is opened again
 border.close = border.CloseButton
 local titleBar = border.TitleContainer or border -- sits above the frame's edges
 
--- gear button in the title bar next to the X (like Baganator's): opens the /cbc window
+-- gear button in the title bar next to the X (like Baganator's): opens the /bc window
 border.gear = CreateFrame("Button", nil, titleBar, "UIPanelButtonTemplate")
 border.gear:SetSize(30, 20)
 border.gear:SetPoint("RIGHT", border.close, "LEFT", -2, 0)
@@ -380,11 +380,11 @@ border.title:SetJustifyH("CENTER")
 border.title:SetWordWrap(false)
 border.title:SetText("Buff Checker")
 border.gear:SetScript("OnClick", function()
-	ClaudeBuffCheckWindow:SetShown(not ClaudeBuffCheckWindow:IsShown())
+	BuffCheckerWindow:SetShown(not BuffCheckerWindow:IsShown())
 end)
 border.gear:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:AddLine("Buff Check settings (/cbc)")
+	GameTooltip:AddLine("Buff Checker settings (/bc)")
 	GameTooltip:Show()
 end)
 border.gear:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -396,7 +396,7 @@ end
 local function StopMove()
 	bar:StopMovingOrSizing()
 	local point, _, relPoint, x, y = bar:GetPoint()
-	ClaudeBuffCheckDB.pos = { point, relPoint, x, y }
+	BuffCheckerDB.pos = { point, relPoint, x, y }
 end
 border:EnableMouse(true)
 border:RegisterForDrag("LeftButton")
@@ -405,14 +405,14 @@ border:SetScript("OnDragStop", StopMove)
 
 border.close:SetScript("OnClick", function()
 	if InCombatLockdown() then return end -- clickable icons cannot be hidden in combat
-	ClaudeBuffCheckDB.hidden = true
+	BuffCheckerDB.hidden = true
 	bar:Hide()
-	print("Buff Check: icons hidden - /cbc shows them again.")
+	print("Buff Checker: icons hidden - /bc shows them again.")
 end)
 
 -- frame around the first "count" places of the grid
 local function UpdateBorder(count)
-	if not (ClaudeBuffCheckDB and ClaudeBuffCheckDB.frame) or count == 0 then
+	if not (BuffCheckerDB and BuffCheckerDB.frame) or count == 0 then
 		border:Hide()
 		return
 	end
@@ -477,7 +477,7 @@ local function Paint(b, check)
 	local active, left, duration, icon = GetState(check, b.buffs)
 	if active == nil then return nil end
 	b.activeIcon = active and icon or nil
-	local db = ClaudeBuffCheckDB
+	local db = BuffCheckerDB
 	if db and b.key and active and icon and db.icons[b.key] ~= icon then -- the icon as the game shows it
 		db.icons[b.key] = icon
 		b.baseIcon = icon
@@ -532,7 +532,7 @@ local function LearnTrigger(spellID)
 		if b.key and check.buffs then
 			local active, left, duration = GetState(check, b.buffs)
 			if active and left and duration and duration <= SHORT_SECONDS and duration - left < 0.8 then
-				ClaudeBuffCheckDB.triggers[spellID] = b.key
+				BuffCheckerDB.triggers[spellID] = b.key
 			end
 		end
 	end
@@ -597,7 +597,7 @@ local function OnPlayerCast(spellID)
 	end
 	pressedOwn = nil
 	if not spellID then return end
-	local learned = ClaudeBuffCheckDB.triggers[spellID]
+	local learned = BuffCheckerDB.triggers[spellID]
 	local spellName = C_Spell.GetSpellName(spellID)
 	if IsSecret(spellName) then spellName = nil end
 	local trigger = spellName and TRIGGERS[spellName]
@@ -666,7 +666,7 @@ local function SizeButton(b)
 end
 
 local function CreateButton(i)
-	local b = CreateFrame("Button", "ClaudeBuffCheckButton" .. i, bar, "SecureActionButtonTemplate")
+	local b = CreateFrame("Button", "BuffCheckerButton" .. i, bar, "SecureActionButtonTemplate")
 	b:RegisterForClicks("AnyUp", "AnyDown")
 	b:Hide()
 
@@ -712,7 +712,7 @@ local function CreateButton(i)
 			local a = self.actions and self.actions[name]
 			if a then GameTooltip:AddLine(SLOT_TIP[name] .. ": " .. (ActionName(a) or "?"), 0.6, 0.6, 0.6) end
 		end
-		GameTooltip:AddLine("Clicks are set in /cbc. Alt+drag moves the bar.", 0.6, 0.6, 0.6)
+		GameTooltip:AddLine("Clicks are set in /bc. Alt+drag moves the bar.", 0.6, 0.6, 0.6)
 		GameTooltip:Show()
 	end)
 
@@ -724,7 +724,7 @@ local function CreateButton(i)
 		SetSlot(me, self.entry, "L", action)
 		ClearCursor()
 		Rebuild()
-		if RefreshList and ClaudeBuffCheckWindow:IsShown() then RefreshList() end
+		if RefreshList and BuffCheckerWindow:IsShown() then RefreshList() end
 	end)
 	b:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
@@ -810,12 +810,12 @@ Rebuild = function()
 end
 
 ---------------------------------------------------------------------------
--- WINDOW (/cbc)
+-- WINDOW (/bc)
 ---------------------------------------------------------------------------
 local ROW = 28
 local rows = {}
 
-local window = CreateFrame("Frame", "ClaudeBuffCheckWindow", UIParent, "ButtonFrameTemplate")
+local window = CreateFrame("Frame", "BuffCheckerWindow", UIParent, "ButtonFrameTemplate")
 window:Hide()
 window:SetSize(600, 590)
 window:SetPoint("CENTER")
@@ -826,17 +826,17 @@ window:EnableMouse(true)
 window:RegisterForDrag("LeftButton")
 window:SetScript("OnDragStart", window.StartMoving)
 window:SetScript("OnDragStop", window.StopMovingOrSizing)
-tinsert(UISpecialFrames, "ClaudeBuffCheckWindow") -- Esc closes it
+tinsert(UISpecialFrames, "BuffCheckerWindow") -- Esc closes it
 
 if window.SetTitle then
-	window:SetTitle("Buff Check")
-elseif ClaudeBuffCheckWindowTitleText then
-	ClaudeBuffCheckWindowTitleText:SetText("Buff Check")
+	window:SetTitle("Buff Checker")
+elseif BuffCheckerWindowTitleText then
+	BuffCheckerWindowTitleText:SetText("Buff Checker")
 end
 local portrait = (window.PortraitContainer and window.PortraitContainer.portrait) or window.portrait
 
 -- top line: whose ticks are shown / edited
-local charDropDown = CreateFrame("Frame", "ClaudeBuffCheckCharDropDown", window, "UIDropDownMenuTemplate")
+local charDropDown = CreateFrame("Frame", "BuffCheckerCharDropDown", window, "UIDropDownMenuTemplate")
 charDropDown:SetPoint("TOPLEFT", 48, -28)
 UIDropDownMenu_SetWidth(charDropDown, 150)
 
@@ -851,7 +851,7 @@ removeCharButton:SetPoint("LEFT", addCharButton, "RIGHT", 4, 0)
 removeCharButton:SetText("Remove")
 
 -- second line: buffs you have on you right now -> pick one and add it
-local buffDropDown = CreateFrame("Frame", "ClaudeBuffCheckActiveBuffDropDown", window, "UIDropDownMenuTemplate")
+local buffDropDown = CreateFrame("Frame", "BuffCheckerActiveBuffDropDown", window, "UIDropDownMenuTemplate")
 buffDropDown:SetPoint("TOPLEFT", 48, -60)
 UIDropDownMenu_SetWidth(buffDropDown, 150)
 local pickedBuff -- spell ID chosen in this drop-down
@@ -885,7 +885,7 @@ if window.Inset then
 	window.Inset:SetPoint("TOPLEFT", 4, -116)
 	window.Inset:SetPoint("BOTTOMRIGHT", -6, 30)
 end
-local scroll = CreateFrame("ScrollFrame", "ClaudeBuffCheckScroll", window, "UIPanelScrollFrameTemplate")
+local scroll = CreateFrame("ScrollFrame", "BuffCheckerScroll", window, "UIPanelScrollFrameTemplate")
 scroll:SetPoint("TOPLEFT", 10, -122)
 scroll:SetPoint("BOTTOMRIGHT", -32, 34)
 local content = CreateFrame("Frame", nil, scroll)
@@ -959,7 +959,7 @@ frameBox:SetScript("OnEnter", function(self)
 end)
 frameBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
 frameBox:SetScript("OnClick", function(self)
-	ClaudeBuffCheckDB.frame = self:GetChecked() and true or nil
+	BuffCheckerDB.frame = self:GetChecked() and true or nil
 	Update()
 end)
 
@@ -992,10 +992,10 @@ ButtonTip(restoreUserButton, "Restore user defaults",
 	"Puts back the list saved with Save user for the character chosen above.")
 
 RefreshList = function()
-	local char = selected and ClaudeBuffCheckDB.chars[selected]
+	local char = selected and BuffCheckerDB.chars[selected]
 	local list = char and char.list or {}
 	UIDropDownMenu_SetText(charDropDown, selected or "(none)")
-	addCharButton:SetEnabled(not ClaudeBuffCheckDB.chars[charKey])
+	addCharButton:SetEnabled(not BuffCheckerDB.chars[charKey])
 	removeCharButton:SetEnabled(char ~= nil)
 	for i, entry in ipairs(list) do
 		local row = rows[i]
@@ -1008,7 +1008,7 @@ RefreshList = function()
 			row.box:SetSize(24, 24)
 			row.box:SetPoint("LEFT", 0, 0)
 			row.box:SetScript("OnClick", function(self)
-				local char = selected and ClaudeBuffCheckDB.chars[selected]
+				local char = selected and BuffCheckerDB.chars[selected]
 				if not char then
 					self:SetChecked(false)
 					message:SetText("|cffff4040First press \"Add this char\" or choose a character.|r")
@@ -1037,7 +1037,7 @@ RefreshList = function()
 					local action = CursorAction()
 					if action == nil then return false end
 					ClearCursor()
-					local char = selected and ClaudeBuffCheckDB.chars[selected]
+					local char = selected and BuffCheckerDB.chars[selected]
 					if not char then
 						message:SetText("|cffff4040First press \"Add this char\" or choose a character.|r")
 					elseif not action then
@@ -1052,7 +1052,7 @@ RefreshList = function()
 				s:SetScript("OnReceiveDrag", Drop)
 				s:SetScript("OnClick", function(self, button)
 					if Drop() then return end
-					local char = selected and ClaudeBuffCheckDB.chars[selected]
+					local char = selected and BuffCheckerDB.chars[selected]
 					if button == "RightButton" and char and SlotsFor(char, row.entry)[name] then
 						SetSlot(char, row.entry, name, nil)
 						if selected == charKey then Rebuild() end
@@ -1068,7 +1068,7 @@ RefreshList = function()
 						GameTooltip:AddLine(SLOT_TIP[name])
 						GameTooltip:AddLine("Drop a spell from the spellbook or an item from your bags here. Spells are cast on yourself.", 1, 1, 1, true)
 					end
-					local char = selected and ClaudeBuffCheckDB.chars[selected]
+					local char = selected and BuffCheckerDB.chars[selected]
 					local a = row.entry and SlotsFor(char, row.entry)[name]
 					if a then
 						GameTooltip:AddLine("Now: " .. (ActionName(a) or "?") .. "   Right click = empty it", 0.6, 0.6, 0.6)
@@ -1087,7 +1087,7 @@ RefreshList = function()
 			row.remove:SetPoint("RIGHT", 0, 0)
 			row.remove:SetText("Remove")
 			row.remove:SetScript("OnClick", function()
-				local char = selected and ClaudeBuffCheckDB.chars[selected]
+				local char = selected and BuffCheckerDB.chars[selected]
 				if not char then return end
 				local key = Key(row.entry)
 				for n, e in ipairs(char.list) do
@@ -1106,7 +1106,7 @@ RefreshList = function()
 
 			-- arrows: swap this line with its neighbour (order in the list = order of the icons)
 			local function Move(step)
-				local char = selected and ClaudeBuffCheckDB.chars[selected]
+				local char = selected and BuffCheckerDB.chars[selected]
 				if not char then return end
 				local l, from = char.list, row.index
 				local to = from + step
@@ -1130,7 +1130,7 @@ RefreshList = function()
 			row.always:SetSize(24, 24)
 			row.always:SetPoint("RIGHT", row.alwaysLabel, "LEFT", 0, 0)
 			row.always:SetScript("OnClick", function(self)
-				local char = selected and ClaudeBuffCheckDB.chars[selected]
+				local char = selected and BuffCheckerDB.chars[selected]
 				if not char then
 					self:SetChecked(false)
 					message:SetText("|cffff4040First press \"Add this char\" or choose a character.|r")
@@ -1194,7 +1194,7 @@ local function AddSpellID(spellID)
 		message:SetText("|cffff4040No spell with ID " .. spellID .. "|r")
 		return
 	end
-	local char = selected and ClaudeBuffCheckDB.chars[selected]
+	local char = selected and BuffCheckerDB.chars[selected]
 	if not char then
 		message:SetText("|cffff4040First press \"Add this char\" or choose a character.|r")
 		return
@@ -1222,7 +1222,7 @@ input:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
 
 -- "Active buffs" drop-down: filled each time it is opened, from the buffs you have right now
 UIDropDownMenu_Initialize(buffDropDown, function()
-	if not ClaudeBuffCheckDB then return end -- the game calls this once right away, before our settings are loaded
+	if not BuffCheckerDB then return end -- the game calls this once right away, before our settings are loaded
 	local seen = {}
 	for i = 1, 40 do
 		local aura = C_UnitAuras.GetAuraDataByIndex("player", i, "HELPFUL")
@@ -1233,7 +1233,7 @@ UIDropDownMenu_Initialize(buffDropDown, function()
 			info.text = aura.name .. "  |cff808080" .. aura.spellId .. "|r"
 			info.icon = aura.icon
 			info.checked = (aura.spellId == pickedBuff)
-			local char = selected and ClaudeBuffCheckDB.chars[selected]
+			local char = selected and BuffCheckerDB.chars[selected]
 			info.disabled = char and InList(char.list, "s:" .. aura.spellId) -- already in the list
 			info.func = function()
 				pickedBuff = aura.spellId
@@ -1263,7 +1263,7 @@ addBuffButton:SetScript("OnClick", function()
 end)
 
 restoreButton:SetScript("OnClick", function()
-	local char = selected and ClaudeBuffCheckDB.chars[selected]
+	local char = selected and BuffCheckerDB.chars[selected]
 	if not char then
 		message:SetText("|cffff4040First press \"Add this char\" or choose a character.|r")
 		return
@@ -1281,7 +1281,7 @@ restoreButton:SetScript("OnClick", function()
 end)
 
 saveUserButton:SetScript("OnClick", function()
-	local char = selected and ClaudeBuffCheckDB.chars[selected]
+	local char = selected and BuffCheckerDB.chars[selected]
 	if not char then
 		message:SetText("|cffff4040First press \"Add this char\" or choose a character.|r")
 		return
@@ -1292,7 +1292,7 @@ saveUserButton:SetScript("OnClick", function()
 end)
 
 restoreUserButton:SetScript("OnClick", function()
-	local char = selected and ClaudeBuffCheckDB.chars[selected]
+	local char = selected and BuffCheckerDB.chars[selected]
 	if not (char and char.saved) then
 		message:SetText("|cffff4040Nothing saved for " .. (selected or "this character") .. " yet (Save user).|r")
 		return
@@ -1307,9 +1307,9 @@ restoreUserButton:SetScript("OnClick", function()
 end)
 
 UIDropDownMenu_Initialize(charDropDown, function()
-	if not ClaudeBuffCheckDB then return end -- the game calls this once right away, before our settings are loaded
+	if not BuffCheckerDB then return end -- the game calls this once right away, before our settings are loaded
 	local names = {}
-	for name in pairs(ClaudeBuffCheckDB.chars) do names[#names + 1] = name end
+	for name in pairs(BuffCheckerDB.chars) do names[#names + 1] = name end
 	table.sort(names)
 	for _, name in ipairs(names) do
 		local info = UIDropDownMenu_CreateInfo()
@@ -1324,8 +1324,8 @@ UIDropDownMenu_Initialize(charDropDown, function()
 end)
 
 addCharButton:SetScript("OnClick", function()
-	ClaudeBuffCheckDB.chars[charKey] = ClaudeBuffCheckDB.chars[charKey] or { list = DefaultList(), watch = {} }
-	me = ClaudeBuffCheckDB.chars[charKey]
+	BuffCheckerDB.chars[charKey] = BuffCheckerDB.chars[charKey] or { list = DefaultList(), watch = {} }
+	me = BuffCheckerDB.chars[charKey]
 	selected = charKey
 	message:SetText("Added " .. charKey .. ". Now tick what it should watch.")
 	Rebuild()
@@ -1334,34 +1334,34 @@ end)
 
 removeCharButton:SetScript("OnClick", function()
 	if not selected then return end
-	ClaudeBuffCheckDB.chars[selected] = nil
+	BuffCheckerDB.chars[selected] = nil
 	message:SetText("Removed " .. selected .. " and its list.")
 	if selected == charKey then
 		me = nil
 		Rebuild()
 	end
-	selected = next(ClaudeBuffCheckDB.chars) -- any remaining one, or nothing
+	selected = next(BuffCheckerDB.chars) -- any remaining one, or nothing
 	RefreshList()
 end)
 
 window:SetScript("OnShow", function()
-	-- the icons were closed with the X: opening /cbc brings them back
-	if ClaudeBuffCheckDB.hidden and not InCombatLockdown() then
-		ClaudeBuffCheckDB.hidden = nil
+	-- the icons were closed with the X: opening /bc brings them back
+	if BuffCheckerDB.hidden and not InCombatLockdown() then
+		BuffCheckerDB.hidden = nil
 		bar:Show()
 	end
 	-- start on the character you are on, if it is in the list
-	if ClaudeBuffCheckDB.chars[charKey] then
+	if BuffCheckerDB.chars[charKey] then
 		selected = charKey
-	elseif not (selected and ClaudeBuffCheckDB.chars[selected]) then
-		selected = next(ClaudeBuffCheckDB.chars)
+	elseif not (selected and BuffCheckerDB.chars[selected]) then
+		selected = next(BuffCheckerDB.chars)
 	end
 	if portrait then SetPortraitTexture(portrait, "player") end -- the player's face, like the character window
 	message:SetText(HINT)
 	pickedBuff = nil
 	UIDropDownMenu_SetText(buffDropDown, "Active buffs")
 	showAllBox:SetChecked(showAll)
-	frameBox:SetChecked(ClaudeBuffCheckDB.frame and true or false)
+	frameBox:SetChecked(BuffCheckerDB.frame and true or false)
 	sizeBox:SetText(SIZE)
 	RefreshList()
 end)
@@ -1380,7 +1380,7 @@ local function ApplySize()
 		message:SetText("|cffff4040Not in combat.|r")
 	elseif size and size >= 24 and size <= 80 then
 		SIZE = size
-		ClaudeBuffCheckDB.size = (size ~= DEFAULT_SIZE) and size or nil
+		BuffCheckerDB.size = (size ~= DEFAULT_SIZE) and size or nil
 		for _, b in ipairs(buttons) do SizeButton(b) end
 		Rebuild()
 		message:SetText("Icon size " .. size .. ".")
@@ -1399,9 +1399,10 @@ sizeBox:SetScript("OnEnter", function(self)
 end)
 sizeBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-SLASH_CLAUDEBUFFCHECK1 = "/cbc"
-SLASH_CLAUDEBUFFCHECK2 = "/buffcheck"
-SlashCmdList["CLAUDEBUFFCHECK"] = function()
+SLASH_BUFFCHECKER1 = "/bc"
+SLASH_BUFFCHECKER2 = "/buffchecker"
+SLASH_BUFFCHECKER3 = "/cbc" -- the old command, kept so it still works
+SlashCmdList["BUFFCHECKER"] = function()
 	window:SetShown(not window:IsShown())
 end
 
@@ -1412,11 +1413,11 @@ optionsPanel.OnDefault = function() end
 optionsPanel.OnRefresh = function() end
 local optionsTitle = optionsPanel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 optionsTitle:SetPoint("TOPLEFT", 16, -16)
-optionsTitle:SetText("[claude] Buff Check")
+optionsTitle:SetText("Buff Checker")
 local optionsButton = CreateFrame("Button", nil, optionsPanel, "UIPanelButtonTemplate")
 optionsButton:SetSize(260, 24)
 optionsButton:SetPoint("TOPLEFT", optionsTitle, "BOTTOMLEFT", 0, -14)
-optionsButton:SetText("Open the Buff Check window (/cbc)")
+optionsButton:SetText("Open the Buff Checker window (/bc)")
 optionsButton:SetScript("OnClick", function()
 	if SettingsPanel and SettingsPanel:IsShown() then HideUIPanel(SettingsPanel) end
 	window:Show()
@@ -1426,8 +1427,8 @@ end)
 -- START
 ---------------------------------------------------------------------------
 local function LoadSettings()
-	ClaudeBuffCheckDB = ClaudeBuffCheckDB or {}
-	local db = ClaudeBuffCheckDB
+	BuffCheckerDB = BuffCheckerDB or {}
+	local db = BuffCheckerDB
 	db.chars = db.chars or {}
 	db.durations = db.durations or {} -- key -> buff duration in seconds, as last seen
 	db.triggers = db.triggers or {}   -- spell ID you cast -> key of the short buff it puts on
@@ -1532,14 +1533,14 @@ bar:SetScript("OnEvent", function(self, event, arg1, ...)
 	if event == "ADDON_LOADED" then
 		if arg1 ~= ADDON then return end
 		LoadSettings()
-		if ClaudeBuffCheckDB.hidden and not InCombatLockdown() then bar:Hide() end
-		local pos = ClaudeBuffCheckDB.pos
+		if BuffCheckerDB.hidden and not InCombatLockdown() then bar:Hide() end
+		local pos = BuffCheckerDB.pos
 		if pos and not InCombatLockdown() then
 			bar:ClearAllPoints()
 			bar:SetPoint(pos[1], UIParent, pos[2], pos[3], pos[4])
 		end
 		if Settings and Settings.RegisterCanvasLayoutCategory then
-			local category = Settings.RegisterCanvasLayoutCategory(optionsPanel, "[claude] Buff Check")
+			local category = Settings.RegisterCanvasLayoutCategory(optionsPanel, "Buff Checker")
 			Settings.RegisterAddOnCategory(category)
 		end
 		Rebuild()

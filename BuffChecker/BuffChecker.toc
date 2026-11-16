@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: Buff Checker
+## Notes: Row of icons for buffs that are missing or about to expire. /bc opens the buff list.
+## Version: 1.0
+## SavedVariables: BuffCheckerDB
+
+BuffChecker.lua

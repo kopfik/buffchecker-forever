@@ -33,14 +33,14 @@ Buff Checker is a World of Warcraft addon for the Forever client. It shows actio
 ## Install
 
 1. Download this repository.
-2. Copy the folder `_claude_BuffCheck` into `World of Warcraft/_forever_/Interface/AddOns/`.
+2. Copy the folder `BuffChecker` into `World of Warcraft/_forever_/Interface/AddOns/`.
 3. Start the game, or type `/reload`.
 
-Your settings are stored by the game in `WTF/Account/<account>/SavedVariables/_claude_BuffCheck.lua`, not in the addon folder.
+Your settings are stored by the game in `WTF/Account/<account>/SavedVariables/BuffChecker.lua`, not in the addon folder.
 
 ## Use
 
-Type `/cbc` to open the settings window.
+Type `/bc` to open the settings window.
 
 - **Add this char** puts the character you are on into the list. A new character starts with a small default list for its class.
 - **Active buffs** lists the buffs you have right now. Pick one and press **Add**. A buff can also be added by its spell ID on the last line of the list.
@@ -51,7 +51,7 @@ Type `/cbc` to open the settings window.
 - **The arrows** change the order of the icons.
 - **Save user / Restore user** store and bring back the whole list of the chosen character.
 - **Show all** shows every icon so the bar can be placed. Move the bar with Alt + drag.
-- **Frame** turns the window frame around the icons on and off. Its X hides the bar until `/cbc` is opened again.
+- **Frame** turns the window frame around the icons on and off. Its X hides the bar until `/bc` is opened again.
 
 ## In combat
 
