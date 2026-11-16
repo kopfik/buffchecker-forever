@@ -1,0 +1,7 @@
+## Interface: 16001
+## Title: [claude] Buff Check
+## Notes: Row of icons for buffs that are missing or about to expire. /cbc opens the buff list.
+## Version: 1.0
+## SavedVariables: ClaudeBuffCheckDB
+
+BuffCheck.lua
