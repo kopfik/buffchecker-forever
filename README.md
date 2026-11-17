@@ -19,7 +19,7 @@ Buff Checker is a World of Warcraft addon for the Forever client. It shows actio
 - Shows an icon for every watched buff that is missing (grey with a red tint) or has less than 2 minutes left (with a countdown, like the game's own buffs).
 - Lets you click the icon to fix it. Every buff has four click slots: left click, right click, Shift + left click and Shift + right click. Each takes a spell from the spellbook or an item from the bags.
 - Casts spells on yourself, always.
-- Watches temporary weapon enchants (oils, stones) as well as buffs.
+- Watches temporary weapon enchants (oils, stones, poisons) on the main hand and the off hand as well as buffs.
 - Keeps a separate list for every character. Any character can be set up from any other one.
 - Can keep an icon on the bar all the time ("always"): red while the buff is missing, in colour while it is on. Useful for "one of two" buffs such as Mage Armor / Ice Armor.
 - Shows short buffs (2 minutes or less) with a clock sweep on the icon.

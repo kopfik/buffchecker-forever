@@ -44,7 +44,8 @@ local PAD_TOP, PAD_BOTTOM = 33, 14
 -- These are here because they need more than a spell ID:
 --   name      text in the list and tooltip (do not rename - the saved list refers to it)
 --   buffs     buff names; any ONE of them being active is enough
---   weapon    true = watch a temporary weapon enchant (oil/stone) on the main hand instead of a buff
+--   weapon    true = watch a temporary weapon enchant (oil/stone) on the main hand instead of a buff,
+--             "off" = the same on the off hand (fine when the off hand is not a weapon: shield, book, nothing)
 --   iconSpell / iconItem   spell ID or item ID to take the icon from (until the buff itself was seen)
 --   icon      icon file, used instead of everything else
 --   countItem item ID whose count in bags is shown in the corner (when no item is in a click slot)
@@ -57,6 +58,8 @@ local DEFAULTS = {
 	{ name = "Arcane Intellect", buffs = { "Arcane Intellect", "Arcane Brilliance" }, iconSpell = 1459, class = "MAGE",
 	  slots = { L = { kind = "spell", name = "Arcane Intellect" } } },
 	{ name = "Wizard Oil", weapon = true, iconItem = 20744, countItem = 20744,
+	  slots = { L = { kind = "item", id = 20744 } } },
+	{ name = "Off-hand Oil", weapon = "off", iconItem = 20744, countItem = 20744,
 	  slots = { L = { kind = "item", id = 20744 } } },
 	{ name = "Well-Rested", buffs = { "Well-Rested" }, iconSpell = 429959,
 	  slots = { L = { kind = "item", name = "Cozy Sleeping Bag" } } },
@@ -239,7 +242,9 @@ local function ActionMacro(a, check, actions)
 		return "/equip item:" .. a.id
 	end
 	local text = "/use " .. (a.id and ("item:" .. a.id) or name)
-	if check.weapon then text = text .. "\n/use 16" end -- oil/stone: put it on the main hand
+	if check.weapon then -- oil/stone: put it on the main hand (16) or the off hand (17)
+		text = text .. "\n/use " .. (check.weapon == "off" and 17 or 16)
+	end
 	return text
 end
 
@@ -316,8 +321,14 @@ end
 local function GetState(check, buffs)
 	if check.empty then return true end -- no buff: always fine
 	if check.weapon then
+		local off = check.weapon == "off"
+		if off then -- shield, book or nothing in the off hand: nothing to put oil on, do not nag
+			local id = GetInventoryItemID("player", 17)
+			local classID = id and select(6, C_Item.GetItemInfoInstant(id))
+			if classID ~= (Enum.ItemClass and Enum.ItemClass.Weapon or 2) then return true end
+		end
 		if C_Item and C_Item.GetWeaponEnchantInfo and Enum.WeaponSlot and Enum.ItemEnchantType then
-			local list = C_Item.GetWeaponEnchantInfo(Enum.WeaponSlot.MainHand)
+			local list = C_Item.GetWeaponEnchantInfo(off and Enum.WeaponSlot.OffHand or Enum.WeaponSlot.MainHand)
 			if IsSecret(list) then return nil end
 			for _, entry in ipairs(list or {}) do
 				if IsSecret(entry) or IsSecret(entry.hasEnchant) or IsSecret(entry.timeLeft) then return nil end
@@ -327,7 +338,8 @@ local function GetState(check, buffs)
 			end
 			return false
 		elseif GetWeaponEnchantInfo then
-			local has, timeLeft = GetWeaponEnchantInfo()
+			local has, timeLeft, _, _, offHas, offTimeLeft = GetWeaponEnchantInfo()
+			if off then has, timeLeft = offHas, offTimeLeft end
 			return has and true or false, has and timeLeft and timeLeft / 1000 or nil
 		end
 		return true -- cannot read it, do not nag
