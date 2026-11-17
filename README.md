@@ -43,6 +43,7 @@ Your settings are stored by the game in `WTF/Account/<account>/SavedVariables/Bu
 Type `/bc` or middle-click (mouse wheel) an icon on the bar to open the settings window; a middle click anywhere in the window closes it again. Ctrl + mouse wheel over the icons changes their size.
 
 - **Add this char** puts the character you are on into the list. A new character starts with a small default list for its class.
+- **Copy from this char** (next to the character list) replaces the list of the character you are on with a copy of the chosen character's list, after a confirmation. It is grey while your own character is chosen.
 - **Active buffs** lists the buffs you have right now. Pick one and press **Add**. A buff can also be added by its spell ID on the last line of the list.
 - **The checkbox** at the start of a line says whether that buff is watched.
 - **The icon** at the start of a line is a slot: drop a spell or an item on it to use its icon on the bar. Empty means the buff's own icon.

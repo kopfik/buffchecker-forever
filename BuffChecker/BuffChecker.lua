@@ -967,6 +967,12 @@ removeCharButton:SetSize(70, 22)
 removeCharButton:SetPoint("LEFT", addCharButton, "RIGHT", 4, 0)
 removeCharButton:SetText("Remove")
 
+-- copies the list of the character chosen in the drop-down onto the one you are on
+local copyCharButton = CreateFrame("Button", nil, window, "UIPanelButtonTemplate")
+copyCharButton:SetSize(130, 22)
+copyCharButton:SetPoint("LEFT", charDropDown, "RIGHT", -6, 2)
+copyCharButton:SetText("Copy from this char")
+
 -- second line: buffs you have on you right now -> pick one and add it
 local buffDropDown = CreateFrame("Frame", "BuffCheckerActiveBuffDropDown", window, "UIDropDownMenuTemplate")
 buffDropDown:SetPoint("TOPLEFT", 48, -60)
@@ -1119,6 +1125,7 @@ RefreshList = function()
 	UIDropDownMenu_SetText(charDropDown, selected and CharLabel(selected) or "(none)")
 	addCharButton:SetEnabled(not BuffCheckerDB.chars[charKey])
 	removeCharButton:SetEnabled(char ~= nil)
+	copyCharButton:SetEnabled(char ~= nil and selected ~= charKey) -- grey on yourself
 	for i, entry in ipairs(list) do
 		local row = rows[i]
 		if not row then
@@ -1469,6 +1476,38 @@ UIDropDownMenu_Initialize(charDropDown, function()
 		UIDropDownMenu_AddButton(info)
 	end
 end)
+
+-- replaces your own list (buffs, order, ticks, click slots, icons) with a copy of the chosen character's
+local function CopyFromSelected()
+	local from = selected and BuffCheckerDB.chars[selected]
+	if not from or selected == charKey then return end
+	BuffCheckerDB.chars[charKey] = BuffCheckerDB.chars[charKey] or { watch = {} }
+	me = BuffCheckerDB.chars[charKey]
+	me.details = MyDetails()
+	me.list = CopyList(from.list)
+	me.watch = CopyTable1(from.watch)
+	me.slots = CopySlots(from.slots)
+	me.always = CopyTable1(from.always)
+	message:SetText("Copied the list of " .. CharLabel(selected) .. " to " .. CharLabel(charKey) .. ".")
+	selected = charKey
+	Rebuild()
+	RefreshList()
+end
+
+StaticPopupDialogs["BUFFCHECKER_COPY_CHAR"] = {
+	text = "Replace the whole list of %s with a copy of the list of %s?",
+	button1 = YES,
+	button2 = NO,
+	OnAccept = CopyFromSelected,
+	timeout = 0,
+	whileDead = true,
+	hideOnEscape = true,
+}
+copyCharButton:SetScript("OnClick", function()
+	StaticPopup_Show("BUFFCHECKER_COPY_CHAR", CharLabel(charKey), CharLabel(selected))
+end)
+ButtonTip(copyCharButton, "Copy from this char",
+	"Replaces the list of the character you are on with a copy of the list of the character chosen on the left: buffs, order, ticks, click slots and icons.")
 
 addCharButton:SetScript("OnClick", function()
 	BuffCheckerDB.chars[charKey] = BuffCheckerDB.chars[charKey] or { list = DefaultList(), watch = {} }
