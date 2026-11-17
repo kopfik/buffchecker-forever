@@ -938,6 +938,13 @@ window:SetScript("OnDragStart", window.StartMoving)
 window:SetScript("OnDragStop", window.StopMovingOrSizing)
 tinsert(UISpecialFrames, "BuffCheckerWindow") -- Esc closes it
 
+-- Middle click anywhere over the window closes it. The buttons inside the window
+-- take the click themselves, so watch the global mouse-up instead of the window.
+-- (the event is switched on and off in OnShow/OnHide further down)
+window:SetScript("OnEvent", function(self, event, mouseButton)
+	if mouseButton == "MiddleButton" and self:IsMouseOver() then self:Hide() end
+end)
+
 if window.SetTitle then
 	window:SetTitle("Buff Checker")
 elseif BuffCheckerWindowTitleText then
@@ -1486,7 +1493,8 @@ removeCharButton:SetScript("OnClick", function()
 	RefreshList()
 end)
 
-window:SetScript("OnShow", function()
+window:SetScript("OnShow", function(self)
+	self:RegisterEvent("GLOBAL_MOUSE_UP") -- middle click closes the window
 	-- the icons were closed with the X: opening /bc brings them back
 	if BuffCheckerDB.hidden and not InCombatLockdown() then
 		BuffCheckerDB.hidden = nil
@@ -1507,7 +1515,8 @@ window:SetScript("OnShow", function()
 	sizeBox:SetText(SIZE)
 	RefreshList()
 end)
-window:SetScript("OnHide", function()
+window:SetScript("OnHide", function(self)
+	self:UnregisterEvent("GLOBAL_MOUSE_UP")
 	-- "show all" is only for setting things up
 	if showAll then
 		showAll = false
