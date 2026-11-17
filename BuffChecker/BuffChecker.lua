@@ -15,6 +15,10 @@
 --     spell from the spellbook or an item from the bags there and that click on the icon uses it
 --     (spells are always cast on yourself). The icon at the start of the line is a slot too:
 --     what is dropped there only gives the bar icon its picture.
+--   * "Add empty" adds a line that watches no buff: just a button for whatever is dropped into its click
+--     slots (a trinket, a potion, a spell). It is always on the bar, in colour.
+--     Gear (trinkets, rings) is put on, not used: with two trinkets on L and R the clicks swap them
+--     in the same trinket slot, and the icon shows the one you wear.
 --   * "always" = the icon is always on the bar: red when the buff is missing, in colour when it is on
 --   * "Show all icons" shows the whole row so it can be moved with Alt+drag
 
@@ -66,7 +70,8 @@ local DEFAULTS = {
 -- DATA
 -- BuffCheckerDB.chars = per character:
 --     list   its buff list, in order. An entry is either
---            { preset = "Well Fed" }  (one of DEFAULTS above) or { spell = 1459 } (added by ID)
+--            { preset = "Well Fed" }  (one of DEFAULTS above), { spell = 1459 } (added by ID)
+--            or { empty = 1 } (added with "Add empty": no buff, only click slots; the number tells them apart)
 --     watch  which entries are ticked
 --     slots  what the clicks on an entry do and which icon it has, when changed in /bc:
 --            slots[key] = { L = action, R = action, SL = action, SR = action, icon = action }
@@ -129,6 +134,7 @@ local DEFAULT_BY_NAME = {}
 for _, check in ipairs(DEFAULTS) do DEFAULT_BY_NAME[check.name] = check end
 
 local function Key(entry)
+	if entry.empty then return "e:" .. entry.empty end
 	return entry.preset and ("p:" .. entry.preset) or ("s:" .. entry.spell)
 end
 
@@ -162,7 +168,11 @@ local function InList(list, key)
 	return false
 end
 
+-- what an "Add empty" line watches: nothing (it is never missing)
+local EMPTY_CHECK = { name = "Empty", empty = true, always = true, buffs = {} }
+
 local function Resolve(entry)
+	if entry.empty then return EMPTY_CHECK end
 	if entry.preset then return DEFAULT_BY_NAME[entry.preset] end
 	local check = spellChecks[entry.spell]
 	if not check then
@@ -197,12 +207,37 @@ local function ActionIcon(a)
 	return icon or FALLBACK_ICON
 end
 
--- the macro text a click runs; spells always go on yourself
-local function ActionMacro(a, check)
+-- Gear that goes into one of two slots: which pair it is.
+local PAIR_SLOTS = { INVTYPE_TRINKET = { 13, 14 }, INVTYPE_FINGER = { 11, 12 } }
+
+-- The equipment slot an item from a click slot is put on: a trinket goes where another trinket
+-- of the same line is now (so left / right click swap the two), otherwise into the first trinket slot.
+-- nil = let the game choose.
+local function EquipSlot(a, actions)
+	local equipLoc = C_Item.GetItemInfoInstant and select(4, C_Item.GetItemInfoInstant(a.id))
+	local pair = equipLoc and PAIR_SLOTS[equipLoc]
+	if not pair then return nil end
+	for _, slot in ipairs(pair) do
+		local worn = GetInventoryItemID("player", slot)
+		for _, name in ipairs(SLOTS) do
+			local other = actions and actions[name]
+			if worn and other and other.kind == "item" and other.id == worn then return slot end
+		end
+	end
+	return pair[1]
+end
+
+-- the macro text a click runs; spells always go on yourself, gear (trinkets...) is put on
+local function ActionMacro(a, check, actions)
 	if not a then return nil end
 	local name = ActionName(a)
 	if a.kind == "spell" then return name and ("/cast [@player] " .. name) or nil end
 	if not a.id and not name then return nil end
+	if a.id and C_Item.IsEquippableItem and C_Item.IsEquippableItem(a.id) then
+		local slot = EquipSlot(a, actions)
+		if slot then return "/equipslot " .. slot .. " item:" .. a.id end
+		return "/equip item:" .. a.id
+	end
 	local text = "/use " .. (a.id and ("item:" .. a.id) or name)
 	if check.weapon then text = text .. "\n/use 16" end -- oil/stone: put it on the main hand
 	return text
@@ -279,6 +314,7 @@ end
 --          secondsLeft (nil = no timer), total duration of the buff in seconds (nil = unknown),
 --          icon of the buff that is on (nil = unknown)
 local function GetState(check, buffs)
+	if check.empty then return true end -- no buff: always fine
 	if check.weapon then
 		if C_Item and C_Item.GetWeaponEnchantInfo and Enum.WeaponSlot and Enum.ItemEnchantType then
 			local list = C_Item.GetWeaponEnchantInfo(Enum.WeaponSlot.MainHand)
@@ -327,6 +363,20 @@ local function EntryIcons(char, entry, check)
 	if not base and check.weapon then -- oil/stone: the item you put on
 		for _, name in ipairs(SLOTS) do
 			if slots[name] and slots[name].kind == "item" then base = ActionIcon(slots[name]) break end
+		end
+	end
+	if check.empty then -- no buff: the gear of the line you wear now, else the first thing in its click slots
+		base = nil
+		for _, name in ipairs(SLOTS) do
+			local a = slots[name]
+			if a and a.kind == "item" and a.id and C_Item.IsEquippedItem and C_Item.IsEquippedItem(a.id) then
+				base = ActionIcon(a)
+				break
+			end
+		end
+		for _, name in ipairs(SLOTS) do
+			if base then break end
+			if slots[name] then base = ActionIcon(slots[name]) end
 		end
 	end
 	return fixed, base or GetIcon(check)
@@ -525,7 +575,9 @@ local function Paint(b, check)
 	b.duration = (db and b.key and db.durations[b.key]) or duration
 	b.missing = not active
 	b.expires = left and (GetTime() + left) or nil -- nil = no timer
-	b.count:SetText(b.countItem and C_Item.GetItemCount(b.countItem) or "")
+	local count = b.countItem and C_Item.GetItemCount(b.countItem)
+	if check.empty and count == 1 then count = nil end -- a trinket: no "1" on it
+	b.count:SetText(count or "")
 	return Look(b)
 end
 
@@ -745,8 +797,18 @@ local function CreateButton(i)
 	b:SetScript("OnEnter", function(self)
 		if not self.check or self:GetAlpha() == 0 then return end
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:AddLine(self.check.name)
-		GameTooltip:AddLine(self.status or "", 1, 1, 1)
+		if self.check.empty then
+			-- an "Add empty" line: no buff, named after the first thing in its click slots
+			local title = "Empty"
+			for _, name in ipairs(SLOTS) do
+				local a = self.actions and self.actions[name]
+				if a then title = ActionName(a) or "?" break end
+			end
+			GameTooltip:AddLine(title)
+		else
+			GameTooltip:AddLine(self.check.name)
+			GameTooltip:AddLine(self.status or "", 1, 1, 1)
+		end
 		for _, name in ipairs(SLOTS) do
 			local a = self.actions and self.actions[name]
 			if a then GameTooltip:AddLine(SLOT_TIP[name] .. ": " .. (ActionName(a) or "?"), 0.6, 0.6, 0.6) end
@@ -830,7 +892,7 @@ Rebuild = function()
 		b:SetAttribute("type", nil)
 		b:SetAttribute("macrotext", nil)
 		for name, suffix in pairs({ L = "1", R = "2" }) do
-			local plain, shift = ActionMacro(slots[name], check), ActionMacro(slots["S" .. name], check)
+			local plain, shift = ActionMacro(slots[name], check, slots), ActionMacro(slots["S" .. name], check, slots)
 			b:SetAttribute("type" .. suffix, plain and "macro" or nil)
 			b:SetAttribute("macrotext" .. suffix, plain)
 			b:SetAttribute("shift-type" .. suffix, shift and "macro" or nil)
@@ -953,6 +1015,11 @@ addButton:SetText("Add")
 local addHint = addRow:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
 addHint:SetPoint("LEFT", addButton, "RIGHT", 8, 0)
 addHint:SetText("number from the Wowhead URL")
+
+local addEmptyButton = CreateFrame("Button", nil, addRow, "UIPanelButtonTemplate")
+addEmptyButton:SetSize(90, 22)
+addEmptyButton:SetPoint("RIGHT", -4, 0)
+addEmptyButton:SetText("Add empty")
 
 -- small arrow button used for moving a line up / down
 local function ArrowButton(parent, direction)
@@ -1216,7 +1283,15 @@ RefreshList = function()
 		row.always:SetChecked(IsAlways(char, entry))
 		-- grey number after the name: spell ID (defaults: the spell its icon comes from; oil: item ID)
 		local id = entry.spell or (check and (check.iconSpell or (check.iconItem and ("item " .. check.iconItem))))
-		row.text:SetText((check and check.name or "?") .. (id and ("  |cff808080" .. id .. "|r") or ""))
+		local name = check and check.name or "?"
+		if entry.empty then -- named after what is in its slots
+			id, name = nil, "|cff808080Empty - drop an item or a spell into L / R / S+L / S+R|r"
+			for _, slotName in ipairs(SLOTS) do
+				local a = slots[slotName]
+				if a then name = ActionName(a) or "?" break end
+			end
+		end
+		row.text:SetText(name .. (id and ("  |cff808080" .. id .. "|r") or ""))
 		row:Show()
 	end
 	for i = #list + 1, #rows do rows[i]:Hide() end
@@ -1250,6 +1325,23 @@ local function AddSpellID(spellID)
 	RefreshList()
 	return true
 end
+
+-- a line with no buff, only click slots (trinkets, potions...)
+addEmptyButton:SetScript("OnClick", function()
+	local char = selected and BuffCheckerDB.chars[selected]
+	if not char then
+		message:SetText("|cffff4040First press \"Add this char\" or choose a character.|r")
+		return
+	end
+	local n = 0
+	for _, e in ipairs(char.list) do n = math.max(n, e.empty or 0) end
+	local entry = { empty = n + 1 }
+	table.insert(char.list, entry)
+	char.watch[Key(entry)] = true
+	message:SetText("Added an empty line: drop an item or a spell into its click slots.")
+	Rebuild()
+	RefreshList()
+end)
 
 local function AddSpell()
 	input:ClearFocus()
@@ -1580,6 +1672,7 @@ bar:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 bar:RegisterEvent("BAG_UPDATE_DELAYED")
 bar:RegisterUnitEvent("UNIT_AURA", "player")
 bar:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
+bar:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 bar:SetScript("OnEvent", function(self, event, arg1, ...)
 	if event == "ADDON_LOADED" then
 		if arg1 ~= ADDON then return end
@@ -1600,6 +1693,10 @@ bar:SetScript("OnEvent", function(self, event, arg1, ...)
 	if not charKey then return end -- our saved settings are not loaded yet
 	if event == "PLAYER_REGEN_DISABLED" then
 		CombatLayout()
+		return
+	end
+	if event == "PLAYER_EQUIPMENT_CHANGED" then
+		Rebuild() -- the icon of a trinket line and which slot its clicks put the trinket into (after combat if in combat)
 		return
 	end
 	if event == "UNIT_SPELLCAST_SUCCEEDED" then

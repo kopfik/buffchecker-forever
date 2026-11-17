@@ -48,6 +48,7 @@ Type `/bc` to open the settings window.
 - **The icon** at the start of a line is a slot: drop a spell or an item on it to use its icon on the bar. Empty means the buff's own icon.
 - **L, R, S+L, S+R** are the click slots. Drop a spell or an item on one; right click empties it. An empty slot does nothing.
 - **always** keeps the icon on the bar.
+- **Add empty** (last line of the list) adds a line that watches no buff, only a button for what you drop into its click slots: a trinket, a potion, a spell. It is always on the bar. Gear is put on instead of used: two trinkets on L and R swap in the same trinket slot, and the icon shows the one you wear.
 - **The arrows** change the order of the icons.
 - **Save user / Restore user** store and bring back the whole list of the chosen character.
 - **Show all** shows every icon so the bar can be placed. Move the bar with Alt + drag.
