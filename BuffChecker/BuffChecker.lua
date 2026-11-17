@@ -1,4 +1,4 @@
--- Buff Checker
+-- Buff Checker - written entirely by AI (Claude), designed and tested in the game by the maintainer.
 -- Shows one row of action-button style icons for buffs that are MISSING or
 -- about to expire. Nothing is shown when everything is fine.
 -- In combat the game hides buffs from addons, so there the icons go by the clock

@@ -8,7 +8,7 @@ Buff Checker is a World of Warcraft addon for the Forever client. It shows actio
 
 **Project status:** Early version, before 0.1. It is used daily by the author and a few guild mates. Saved settings may change format between versions.
 
-**Transparency:** Buff Checker is an AI-assisted project. The code was written with the help of an AI coding assistant, then tested in the game and steered by the maintainer. It is one Lua file, kept readable so that it can be inspected directly.
+**Transparency:** Buff Checker is written entirely by AI. All of the code and this documentation were produced by an AI coding assistant (Claude); the maintainer is not a programmer and did not write any of it by hand. His part was deciding what the addon should do, testing every change in the game and reporting what was wrong. The code is one Lua file, kept readable and commented so that it can be inspected directly.
 
 **License:** [MIT](LICENSE)
 
