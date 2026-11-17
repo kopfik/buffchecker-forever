@@ -5,7 +5,7 @@
 -- (a buff seen before combat runs out -> icon appears) and by your own casts
 -- (you cast a watched buff -> icon disappears). Gaps close after combat.
 --
--- /bc opens the window:
+-- /bc (or a middle click on an icon) opens the window:
 --   * every character has its own list of buffs - add by spell ID (last line), remove with the button,
 --     arrows change the order (= order of the icons); changing it never touches other characters
 --   * "Add this character" puts the character you are on into the drop-down
@@ -813,7 +813,7 @@ local function CreateButton(i)
 			local a = self.actions and self.actions[name]
 			if a then GameTooltip:AddLine(SLOT_TIP[name] .. ": " .. (ActionName(a) or "?"), 0.6, 0.6, 0.6) end
 		end
-		GameTooltip:AddLine("Clicks are set in /bc. Alt+drag moves the bar.", 0.6, 0.6, 0.6)
+		GameTooltip:AddLine("Middle click opens /bc (clicks are set there). Alt+drag moves the bar.", 0.6, 0.6, 0.6)
 		GameTooltip:Show()
 	end)
 
@@ -832,6 +832,12 @@ local function CreateButton(i)
 	-- Alt+drag any icon moves the whole bar
 	b:RegisterForDrag("LeftButton")
 	b:HookScript("PostClick", OnOwnClick)
+	-- middle click (mouse wheel) opens / closes the /bc window; it has no click slot, so it casts nothing
+	b:HookScript("PostClick", function(self, mouseButton, down)
+		if mouseButton == "MiddleButton" and not down then
+			BuffCheckerWindow:SetShown(not BuffCheckerWindow:IsShown())
+		end
+	end)
 	b:SetScript("OnDragStart", StartMove)
 	b:SetScript("OnDragStop", StopMove)
 	return b
