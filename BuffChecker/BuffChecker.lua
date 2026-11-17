@@ -1494,7 +1494,11 @@ removeCharButton:SetScript("OnClick", function()
 end)
 
 window:SetScript("OnShow", function(self)
-	self:RegisterEvent("GLOBAL_MOUSE_UP") -- middle click closes the window
+	-- middle click closes the window; start a frame later, so the middle click
+	-- that just opened it (from an icon under the window) does not close it again
+	C_Timer.After(0, function()
+		if self:IsShown() then self:RegisterEvent("GLOBAL_MOUSE_UP") end
+	end)
 	-- the icons were closed with the X: opening /bc brings them back
 	if BuffCheckerDB.hidden and not InCombatLockdown() then
 		BuffCheckerDB.hidden = nil
