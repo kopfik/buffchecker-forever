@@ -40,7 +40,7 @@ Your settings are stored by the game in `WTF/Account/<account>/SavedVariables/Bu
 
 ## Use
 
-Type `/bc` or middle-click (mouse wheel) an icon on the bar to open the settings window.
+Type `/bc` or middle-click (mouse wheel) an icon on the bar to open the settings window. Ctrl + mouse wheel over the icons changes their size.
 
 - **Add this char** puts the character you are on into the list. A new character starts with a small default list for its class.
 - **Active buffs** lists the buffs you have right now. Pick one and press **Add**. A buff can also be added by its spell ID on the last line of the list.

@@ -756,9 +756,12 @@ local function SizeButton(b)
 	b.cd:SetPoint("BOTTOMRIGHT", b.icon, -3 * k, 3 * k)
 end
 
+local OnWheel -- Ctrl + mouse wheel changes the icon size; defined further down
+
 local function CreateButton(i)
 	local b = CreateFrame("Button", "BuffCheckerButton" .. i, bar, "SecureActionButtonTemplate")
 	b:RegisterForClicks("AnyUp", "AnyDown")
+	b:SetScript("OnMouseWheel", function(self, delta) OnWheel(delta) end)
 	b:Hide()
 
 	b.icon = b:CreateTexture(nil, "BACKGROUND")
@@ -813,7 +816,7 @@ local function CreateButton(i)
 			local a = self.actions and self.actions[name]
 			if a then GameTooltip:AddLine(SLOT_TIP[name] .. ": " .. (ActionName(a) or "?"), 0.6, 0.6, 0.6) end
 		end
-		GameTooltip:AddLine("Middle click opens /bc (clicks are set there). Alt+drag moves the bar.", 0.6, 0.6, 0.6)
+		GameTooltip:AddLine("Middle click opens /bc (clicks are set there). Alt+drag moves the bar. Ctrl+wheel = size.", 0.6, 0.6, 0.6)
 		GameTooltip:Show()
 	end)
 
@@ -1528,12 +1531,35 @@ local function ApplySize()
 	end
 	sizeBox:SetText(SIZE)
 end
+-- Ctrl + mouse wheel over the icons: size one step bigger / smaller
+OnWheel = function(delta)
+	if InCombatLockdown() then return end
+	local size = math.max(24, math.min(80, SIZE + (delta > 0 and 1 or -1)))
+	if size == SIZE then return end
+	SIZE = size
+	BuffCheckerDB.size = (size ~= DEFAULT_SIZE) and size or nil
+	for _, b in ipairs(buttons) do SizeButton(b) end
+	Rebuild()
+	sizeBox:SetText(SIZE)
+end
+border:SetScript("OnMouseWheel", function(self, delta) OnWheel(delta) end)
+
+-- the icons take the mouse wheel only while Ctrl is held, so the wheel still zooms the camera over them
+local wheelWatch = CreateFrame("Frame")
+wheelWatch:RegisterEvent("MODIFIER_STATE_CHANGED")
+wheelWatch:SetScript("OnEvent", function()
+	if InCombatLockdown() then return end
+	local on = IsControlKeyDown()
+	for _, b in ipairs(buttons) do b:EnableMouseWheel(on) end
+	border:EnableMouseWheel(on)
+end)
+
 sizeBox:SetScript("OnEnterPressed", ApplySize)
 sizeBox:SetScript("OnEscapePressed", function(self) self:SetText(SIZE) self:ClearFocus() end)
 sizeBox:SetScript("OnEnter", function(self)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:AddLine("Icon size")
-	GameTooltip:AddLine("24 - 80, default " .. DEFAULT_SIZE .. ". Type it and press Enter.", 1, 1, 1)
+	GameTooltip:AddLine("24 - 80, default " .. DEFAULT_SIZE .. ". Type it and press Enter, or Ctrl + mouse wheel over the icons.", 1, 1, 1)
 	GameTooltip:Show()
 end)
 sizeBox:SetScript("OnLeave", function() GameTooltip:Hide() end)
