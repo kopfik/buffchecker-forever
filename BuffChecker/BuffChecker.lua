@@ -78,13 +78,52 @@ local showAll = false
 local buttons = {}
 local checks = {}    -- what this character watches right now
 local needRebuild = false
-local charKey        -- "Name-Realm" of the character you are logged in with
+local charKey        -- "Name Surname-Realm" of the character you are logged in with (Forever: first names are not unique)
 local me             -- its saved settings; nil until "Add this character" is pressed
-local selected       -- "Name-Realm" chosen in the window's drop-down
+local selected       -- "Name Surname-Realm" chosen in the window's drop-down
 local spellChecks = {}
 local checkKeys = {} -- list key of each entry in "checks"
 local checkEntries = {} -- and the list entry itself
 local RefreshList    -- the window's list, filled in further down
+
+-- race, sex, class, faction and ruleset of the character you are on (saved with it, for the drop-down)
+local function MyDetails()
+	local ruleset
+	if C_GameRules and C_GameRules.IsGameRuleActive and Enum.GameRule then -- same as Baganator / Syndicator show it
+		local pvp = Enum.GameRule.PvPRuleset and C_GameRules.IsGameRuleActive(Enum.GameRule.PvPRuleset)
+		local rp = Enum.GameRule.RPRuleset and C_GameRules.IsGameRuleActive(Enum.GameRule.RPRuleset)
+		local hc = Enum.GameRule.HardcoreRuleset and C_GameRules.IsGameRuleActive(Enum.GameRule.HardcoreRuleset)
+		ruleset = (pvp and rp and "RPPvP") or (pvp and "PvP") or (rp and "RP") or (hc and "HC") or "PvE"
+	end
+	return { race = select(2, UnitRace("player")), sex = UnitSex("player"), class = select(2, UnitClass("player")),
+		faction = UnitFactionGroup("player"), ruleset = ruleset }
+end
+
+-- how a character is written in the drop-down: race icon and name in its class colour, without the realm.
+-- long = also the ruleset and the faction emblem (in the list)
+local RACE_ATLAS = { scourge = "undead", zandalaritroll = "zandalari", highmountaintauren = "highmountain",
+	lightforgeddraenei = "lightforged", earthendwarf = "earthen", harronir = "haranir" }
+local function CharLabel(name, long)
+	local char = BuffCheckerDB.chars[name]
+	local d = (name == charKey) and MyDetails() or (char and char.details) or {}
+	local text = name:match("^[^-]+") or name
+	local color = d.class and (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[d.class]
+	if color and color.colorStr then text = "|c" .. color.colorStr .. text .. "|r" end
+	if d.race then
+		local race = d.race:lower()
+		local sex = (d.sex == 3 and "female") or (d.sex == 2 and "male") or "unknown"
+		text = "|A:raceicon-" .. (RACE_ATLAS[race] or race) .. "-" .. sex .. ":13:13|a " .. text
+	end
+	if long then
+		if d.ruleset then text = text .. "  |cffbfbfbf" .. d.ruleset .. "|r" end
+		if d.faction == "Horde" then
+			text = text .. " |A:charcreatetest-logo-horde:16:14|a"
+		elseif d.faction == "Alliance" then
+			text = text .. " |A:charcreatetest-logo-alliance:16:14|a"
+		end
+	end
+	return text
+end
 
 local DEFAULT_BY_NAME = {}
 for _, check in ipairs(DEFAULTS) do DEFAULT_BY_NAME[check.name] = check end
@@ -994,7 +1033,7 @@ ButtonTip(restoreUserButton, "Restore user defaults",
 RefreshList = function()
 	local char = selected and BuffCheckerDB.chars[selected]
 	local list = char and char.list or {}
-	UIDropDownMenu_SetText(charDropDown, selected or "(none)")
+	UIDropDownMenu_SetText(charDropDown, selected and CharLabel(selected) or "(none)")
 	addCharButton:SetEnabled(not BuffCheckerDB.chars[charKey])
 	removeCharButton:SetEnabled(char ~= nil)
 	for i, entry in ipairs(list) do
@@ -1313,7 +1352,7 @@ UIDropDownMenu_Initialize(charDropDown, function()
 	table.sort(names)
 	for _, name in ipairs(names) do
 		local info = UIDropDownMenu_CreateInfo()
-		info.text = name .. (name == charKey and "  (this one)" or "")
+		info.text = CharLabel(name, true) .. (name == charKey and "  (this one)" or "")
 		info.checked = (name == selected)
 		info.func = function()
 			selected = name
@@ -1326,16 +1365,18 @@ end)
 addCharButton:SetScript("OnClick", function()
 	BuffCheckerDB.chars[charKey] = BuffCheckerDB.chars[charKey] or { list = DefaultList(), watch = {} }
 	me = BuffCheckerDB.chars[charKey]
+	me.details = MyDetails()
 	selected = charKey
-	message:SetText("Added " .. charKey .. ". Now tick what it should watch.")
+	message:SetText("Added " .. CharLabel(charKey) .. ". Now tick what it should watch.")
 	Rebuild()
 	RefreshList()
 end)
 
 removeCharButton:SetScript("OnClick", function()
 	if not selected then return end
+	local label = CharLabel(selected)
 	BuffCheckerDB.chars[selected] = nil
-	message:SetText("Removed " .. selected .. " and its list.")
+	message:SetText("Removed " .. label .. " and its list.")
 	if selected == charKey then
 		me = nil
 		Rebuild()
@@ -1433,7 +1474,17 @@ local function LoadSettings()
 	db.durations = db.durations or {} -- key -> buff duration in seconds, as last seen
 	db.triggers = db.triggers or {}   -- spell ID you cast -> key of the short buff it puts on
 	db.icons = db.icons or {}         -- key -> icon of the buff as the game last showed it
-	charKey = UnitName("player") .. "-" .. GetRealmName()
+	local name, surname = UnitName("player")
+	local sep = Constants and Constants.CharacterNameSeparatorConsts and Constants.CharacterNameSeparatorConsts.CHARACTERNAME_SURNAME_SEPARATOR or " "
+	charKey = ((surname and surname ~= "") and (name .. sep .. surname) or name) .. "-" .. GetRealmName()
+	-- older versions saved the character under the first name only: it moves to the full name
+	-- (with two characters of the same first name, the first one to log in gets it)
+	local old = name .. "-" .. GetRealmName()
+	if old ~= charKey and db.chars[old] and not db.chars[charKey] then
+		db.chars[charKey] = db.chars[old]
+		db.chars[old] = nil
+	end
+	if db.chars[charKey] then db.chars[charKey].details = MyDetails() end
 	SIZE = db.size or DEFAULT_SIZE
 
 	if not db.charsByButton then
