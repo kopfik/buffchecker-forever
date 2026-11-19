@@ -80,6 +80,9 @@ local DEFAULTS = {
 --            slots[key] = { L = action, R = action, SL = action, SR = action, icon = action }
 --     always entries ticked / unticked as "always" in /bc (true / false)
 --     saved  copy of all of the above made by "Save user" ("Restore user" puts it back)
+--     spec   which talent group (dual spec: 1 or 2) "watch" and "always" belong to
+--     specTicks  the ticks of the other talent group: specTicks[group] = { watch = ..., always = ... }
+--            (the list is the same for both, only the ticks differ)
 ---------------------------------------------------------------------------
 local FALLBACK_ICON = 134400 -- question mark
 local showAll = false
@@ -1759,8 +1762,36 @@ local function LoadSettings()
 	end
 end
 
+-- DUAL SPEC: every talent group of your character has its own ticks ("watch" and "always");
+-- the list itself is shared. On a switch the ticks of the old group are put away and the new
+-- group's are taken out (a group seen for the first time starts with a copy of the old ticks).
+local function SpecGroup()
+	if C_SpecializationInfo and C_SpecializationInfo.GetActiveSpecGroup then
+		return C_SpecializationInfo.GetActiveSpecGroup()
+	end
+	return GetActiveTalentGroup and GetActiveTalentGroup() or 1
+end
+
+-- returns true when the ticks were switched
+local function SyncSpec()
+	if not me then return false end
+	local group = SpecGroup()
+	if not group or IsSecret(group) then return false end
+	me.spec = me.spec or group
+	if me.spec == group then return false end
+	me.specTicks = me.specTicks or {}
+	me.specTicks[me.spec] = { watch = me.watch, always = me.always }
+	local new = me.specTicks[group]
+	me.watch = new and new.watch or CopyTable1(me.watch)
+	me.always = new and new.always or CopyTable1(me.always)
+	me.specTicks[group] = nil
+	me.spec = group
+	return true
+end
+
 bar:RegisterEvent("ADDON_LOADED")
 bar:RegisterEvent("PLAYER_ENTERING_WORLD")
+bar:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 bar:RegisterEvent("PLAYER_REGEN_ENABLED")
 bar:RegisterEvent("PLAYER_REGEN_DISABLED")
 pcall(bar.RegisterEvent, bar, "ADDON_RESTRICTION_STATE_CHANGED") -- boss encounter starts / ends
@@ -1787,6 +1818,14 @@ bar:SetScript("OnEvent", function(self, event, arg1, ...)
 		return
 	end
 	if not charKey then return end -- our saved settings are not loaded yet
+	if event == "PLAYER_ENTERING_WORLD" or event == "ACTIVE_TALENT_GROUP_CHANGED" then
+		if SyncSpec() then
+			print("Buff Checker: talents " .. me.spec .. " - using its own ticks.")
+			if RefreshList and BuffCheckerWindow:IsShown() then RefreshList() end
+			Rebuild()
+			return
+		end
+	end
 	if event == "PLAYER_REGEN_DISABLED" then
 		CombatLayout()
 		return

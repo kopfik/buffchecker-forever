@@ -21,6 +21,7 @@ Buff Checker is a World of Warcraft addon for the Forever client. It shows actio
 - Casts spells on yourself, always.
 - Watches temporary weapon enchants (oils, stones, poisons) on the main hand and the off hand as well as buffs.
 - Keeps a separate list for every character. Any character can be set up from any other one.
+- Dual spec: each talent group has its own ticks ("watched" and "always"), switched automatically with the talents. The list of buffs and the click slots are the same for both.
 - Can keep an icon on the bar all the time ("always"): red while the buff is missing, in colour while it is on. Useful for "one of two" buffs such as Mage Armor / Ice Armor.
 - Shows short buffs (2 minutes or less) with a clock sweep on the icon.
 - Looks like the game's own action bars, with an optional window frame around the icons.
